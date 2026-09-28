@@ -1,0 +1,9 @@
+{
+  "name": "starship-launch-experience",
+  "private": true,
+  "version": "0.9.0",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/main.js && node scripts/check.mjs"
+  }
+}
