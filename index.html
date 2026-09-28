@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#02050a" />
+  <meta name="color-scheme" content="dark" />
+  <title>STARSHIP — Flight Experience</title>
+  <meta name="description" content="A cinematic real-time 3D visualization of Starship V3 launch preparation, ascent and hot-stage separation." />
+  <link rel="stylesheet" href="./src/style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene"></canvas>
+    <div id="grade" aria-hidden="true"></div>
+    <div id="grain" aria-hidden="true"></div>
+
+    <div id="loading" class="loading" role="status" aria-live="polite">
+      <div class="loading-inner">
+        <div class="loader-kicker">REAL-TIME FLIGHT EXPERIENCE</div>
+        <h1>STARSHIP</h1>
+        <div class="loader-track"><i id="loaderBar"></i></div>
+        <div class="loader-row"><span id="loaderLabel">BOOTING RENDERER</span><strong id="loaderPct">0%</strong></div>
+        <p id="loaderNote">High-detail Block 3 vehicle model + procedural Starbase environment</p>
+      </div>
+    </div>
+
+    <div id="fatal" class="fatal" hidden>
+      <div>
+        <p class="fatal-kicker">HIGH-DETAIL MODE UNAVAILABLE</p>
+        <h2>PROCEDURAL FALLBACK READY</h2>
+        <p id="fatalReason">외부 모델 또는 렌더링 모듈을 불러오지 못했습니다.</p>
+        <a href="./fallback.html">RUN FALLBACK EXPERIENCE</a>
+      </div>
+    </div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span>STARBASE / PAD 2</span>
+        <strong>STARSHIP V3</strong>
+      </div>
+      <div class="controls">
+        <button id="autoBtn" class="active">AUTO</button>
+        <button id="exploreBtn">EXPLORE</button>
+        <button id="soundBtn">SOUND OFF</button>
+        <button id="qualityBtn">HIGH</button>
+      </div>
+    </header>
+
+    <aside class="story-card">
+      <div class="story-meta"><span id="storyIndex">01 / 16</span><span id="storyLabel">STARBASE</span></div>
+      <h2 id="storyTitle">A QUIET PAD</h2>
+      <p id="storyCopy">아직 모든 것이 고요한 Starbase Pad 2. 발사체와 지상 설비의 전체 스케일부터 시작합니다.</p>
+      <div id="fact" class="fact">REAL-TIME WEBGL · V3 VISUAL RECONSTRUCTION</div>
+    </aside>
+
+    <div class="telemetry">
+      <div><span>MISSION</span><b id="missionClock">00:00 / 07:31</b></div>
+      <div><span>ALTITUDE</span><b id="altitude">0 m</b></div>
+      <div><span>VELOCITY</span><b id="velocity">0 km/h</b></div>
+      <div><span>SEQUENCE</span><b id="sequence">0%</b></div>
+    </div>
+
+    <div id="countdown" class="countdown" aria-hidden="true"></div>
+    <div class="mode-badge" id="modeBadge">CINEMATIC AUTO</div>
+
+    <nav class="timeline" aria-label="Flight sequence">
+      <div class="timeline-track"><i id="timelineFill"></i></div>
+      <div id="timelineMarkers" class="timeline-markers"></div>
+    </nav>
+
+    <div id="hint" class="hint">SCROLL / DRAG TO EXPLORE · AUTO PLAYS THE COMPLETE SEQUENCE</div>
+  </div>
+
+  <script>
+    setTimeout(() => {
+      if (!window.__STARSHIP_BOOTED) {
+        const loading = document.getElementById('loading');
+        const fatal = document.getElementById('fatal');
+        if (loading) loading.hidden = true;
+        if (fatal) { fatal.hidden = false; document.getElementById('fatalReason').textContent = '3D 렌더링 모듈을 불러오지 못했습니다. 네트워크 연결을 확인하거나 fallback 모드를 실행하세요.'; }
+      }
+    }, 12000);
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
