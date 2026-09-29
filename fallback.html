@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>STARSHIP — Procedural Fallback</title>
+<style>
+html,body{margin:0;background:#03070b;color:#eef3f6;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden}canvas{position:fixed;inset:0;width:100%;height:100%;display:block}.top{position:fixed;top:18px;left:20px;right:20px;display:flex;justify-content:space-between;z-index:2;text-shadow:0 2px 14px #000}.brand small,.hud small{display:block;font:700 9px/1 ui-monospace,monospace;letter-spacing:.17em;color:#98a6b1}.brand b{display:block;margin-top:5px;font-size:24px;letter-spacing:.08em}.controls{display:flex;gap:6px}.controls button{border:1px solid #ffffff26;background:#07101899;color:#cbd4db;border-radius:999px;padding:8px 10px;font:700 8px/1 ui-monospace,monospace;letter-spacing:.1em}.controls button.on{background:#ffffff20;color:#fff}.story{position:fixed;left:20px;bottom:54px;max-width:min(570px,78vw);padding:13px 15px;border-left:1px solid #ffffff70;background:linear-gradient(90deg,#02070cbf,transparent);z-index:2}.story small{font:700 9px/1 ui-monospace,monospace;letter-spacing:.14em;color:#a8b3bc}.story h1{font-size:clamp(20px,3vw,34px);letter-spacing:.04em;margin:8px 0 6px}.story p{font-size:12px;line-height:1.55;color:#bac5cd;margin:0}.hud{position:fixed;right:20px;bottom:58px;text-align:right;z-index:2}.hud b{display:block;margin-top:4px;font:650 15px/1 ui-monospace,monospace}.bar{position:fixed;left:20px;right:20px;bottom:20px;height:1px;background:#ffffff22;z-index:3}.bar i{display:block;height:1px;background:#fff;box-shadow:0 0 10px #fff;width:0}.badge{position:fixed;top:74px;right:20px;font:700 8px/1 ui-monospace,monospace;letter-spacing:.14em;color:#ffffff80;z-index:2}@media(max-width:700px){.hud{display:none}.story{left:14px;bottom:50px;max-width:calc(100vw - 28px)}.top{left:14px;right:14px}.brand b{font-size:18px}.controls button{padding:7px;font-size:7px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top"><div class="brand"><small>PROCEDURAL WEBGL2 FALLBACK</small><b>STARSHIP V3</b></div><div class="controls"><button id="auto" class="on">AUTO</button><button id="explore">EXPLORE</button></div></div>
+<div class="badge" id="badge">CINEMATIC AUTO</div>
+<div class="story"><small id="meta">01 / 16 · STARBASE</small><h1 id="title">A QUIET PAD</h1><p id="copy">외부 모델 없이 실행되는 실시간 WebGL2 fallback입니다.</p></div>
+<div class="hud"><small>ALTITUDE</small><b id="alt">0 m</b><small style="margin-top:12px">SEQUENCE</small><b id="seq">0%</b></div>
+<div class="bar"><i id="fill"></i></div>
+<script>
+const gl=document.getElementById('c').getContext('webgl2',{antialias:true,powerPreference:'high-performance'});
+if(!gl){document.body.innerHTML='<div style="padding:40px">WebGL2를 지원하는 브라우저가 필요합니다.</div>';throw new Error('WebGL2 unavailable')}
+const vs=`#version 300 es
+precision highp float;
+const vec2 p[3]=vec2[](vec2(-1.,-1.),vec2(3.,-1.),vec2(-1.,3.));
+out vec2 uv;
+void main(){gl_Position=vec4(p[gl_VertexID],0.,1.);uv=gl_Position.xy*.5+.5;}`;
+const fs=`#version 300 es
+precision highp float;
+in vec2 uv;out vec4 outColor;
+uniform vec2 r;uniform float t;uniform float p;
+float hash(vec2 q){return fract(sin(dot(q,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 q){vec2 i=floor(q),f=fract(q);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+float box(vec2 q,vec2 b){vec2 d=abs(q)-b;return length(max(d,0.))+min(max(d.x,d.y),0.);}
+float seg(vec2 q,vec2 a,vec2 b,float w){vec2 pa=q-a,ba=b-a;float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);return length(pa-ba*h)-w;}
+vec3 sky(vec2 q,float space){vec3 lo=mix(vec3(.55,.69,.79),vec3(.02,.04,.09),space);vec3 hi=mix(vec3(.10,.27,.45),vec3(.003,.006,.018),space);return mix(lo,hi,clamp(q.y,0.,1.));}
+void main(){
+ vec2 q=uv;float asp=r.x/r.y;q.x=(q.x-.5)*asp+.5;
+ float ascent=smoothstep(.54,.89,p),sep=smoothstep(.91,.99,p);
+ vec3 col=sky(uv,ascent);
+ float horizon=.19-ascent*.03;
+ col=mix(col,vec3(.13,.14,.13),step(q.y,horizon));
+ // launch tower
+ float tx=.58-sep*.08;float tw=box(vec2(q.x-tx,q.y-.48),vec2(.038,.31));
+ col=mix(col,vec3(.17,.20,.22),1.-smoothstep(0.,.004,tw));
+ for(int i=0;i<10;i++){float y=.22+float(i)*.055;float beam=seg(q,vec2(tx-.05,y),vec2(tx+.05,y),.002);col=mix(col,vec3(.25,.28,.29),1.-smoothstep(0.,.0025,beam));}
+ // rocket compressed upward motion
+ float y=.20+ascent*.30+sep*.05;
+ float rx=.47+sep*.035;
+ float body=box(vec2(q.x-rx,q.y-(y+.25)),vec2(.022,.25));
+ float nose=length(vec2((q.x-rx)*1.25,q.y-(y+.505)))-.024;
+ float metal=1.-smoothstep(0.,.004,min(body,nose));
+ vec3 steel=mix(vec3(.45,.49,.51),vec3(.83,.86,.87),clamp((q.x-rx)*14.+.5,0.,1.));
+ col=mix(col,steel,metal);
+ // heat-shield side
+ float tile=box(vec2(q.x-(rx+.020),q.y-(y+.33)),vec2(.005,.15));
+ col=mix(col,vec3(.025,.029,.031),1.-smoothstep(0.,.003,tile));
+ // ground flame/plume
+ float ign=smoothstep(.47,.56,p)*(1.-smoothstep(.89,.92,p));
+ if(ign>.001){
+   vec2 fp=vec2((q.x-rx)*5.,(q.y-(y-.02))*2.4);
+   float n=noise(fp*5.+vec2(0.,-t*1.6))+noise(fp*10.-vec2(0.,t*.7))*.5;
+   float plume=1.-smoothstep(.08,.62,abs(fp.x)+max(fp.y,0.)*.18+(-fp.y)*.16-n*.18);
+   plume*=smoothstep(.1,-.9,fp.y);
+   vec3 fire=mix(vec3(1.,.18,.015),vec3(1.,.9,.55),clamp(1.-abs(fp.x)*1.7,0.,1.));
+   col+=fire*plume*ign*1.35;
+   float sm=noise((q-vec2(rx,horizon))*vec2(8.,4.)+vec2(t*.08,0.));
+   float smoke=smoothstep(.52,.78,sm)*smoothstep(.26,.10,abs(q.y-horizon))*ign;
+   col=mix(col,vec3(.52,.54,.54),smoke*.32);
+ }
+ // hot-stage second plume
+ float hot=smoothstep(.91,.945,p);
+ if(hot>.001){
+   vec2 hp=vec2((q.x-rx)*7.,(q.y-(y+.26))*3.);
+   float pl=exp(-abs(hp.x)*5.)*smoothstep(.15,-.8,hp.y)*hot;
+   col+=vec3(.65,.32,.07)*pl;
+ }
+ // earth reveal
+ float earth=smoothstep(.76,.92,p);float d=length(vec2((q.x-.5)*.75,q.y+.73));
+ float ed=smoothstep(.82,.78,d)*earth;col=mix(col,vec3(.025,.16,.29),ed*.9);
+ float rim=smoothstep(.81,.795,d)-smoothstep(.795,.78,d);col+=vec3(.15,.55,1.)*rim*earth*.7;
+ // subtle grain
+ col+=(hash(gl_FragCoord.xy+floor(t*30.))-.5)*.015;
+ outColor=vec4(pow(max(col,0.),vec3(.92)),1.);
+}`;
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
+const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);gl.bindVertexArray(gl.createVertexArray());
+const ur=gl.getUniformLocation(pr,'r'),ut=gl.getUniformLocation(pr,'t'),up=gl.getUniformLocation(pr,'p');
+
+const stages=[
+['STARBASE','A QUIET PAD','발사장 전체 환경에서 시작합니다.'],['APPROACH','THE STACK','Starship V3 스택으로 접근합니다.'],['GROUND SYSTEMS','PAD 2','발사탑과 지상설비를 통과합니다.'],['PROPELLANT LOAD','METHANE / OXYGEN','추진제 적재와 venting이 진행됩니다.'],['CUTAWAY','INSIDE THE TANKS','내부 탱크 흐름을 교육용으로 시각화합니다.'],['ENGINE BAY','33 RAPTOR 3','Super Heavy의 33개 엔진을 보여줍니다.'],['COUNTDOWN','T−00:00:30','최종 카운트다운이 시작됩니다.'],['IGNITION','RAPTOR START','엔진 점화와 plume이 발사대를 덮습니다.'],['LIFTOFF','THE STACK MOVES','거대한 발사체가 지면을 떠납니다.'],['TOWER CLEAR','CLEAR OF PAD 2','발사탑을 완전히 통과합니다.'],['ASCENT','ATMOSPHERE','대기권을 가르며 상승합니다.'],['MAX Q','PEAK LOAD','최대 동압 구간을 통과합니다.'],['HIGH ALTITUDE','EARTH REVEAL','하늘이 어두워지고 지구가 나타납니다.'],['MECO','STAGING PREP','Super Heavy 엔진이 정지합니다.'],['HOT-STAGING','SIX RAPTORS','Starship 엔진이 점화됩니다.'],['SEPARATION','TWO PATHS','두 단계가 서로 멀어집니다.']];
+let mode='auto',prog=0,target=0,last=performance.now(),elapsed=0;const total=451;
+const auto=document.getElementById('auto'),explore=document.getElementById('explore');
+auto.onclick=()=>{mode='auto';elapsed=prog*total;auto.classList.add('on');explore.classList.remove('on');badge.textContent='CINEMATIC AUTO'};
+explore.onclick=()=>{mode='explore';target=prog;explore.classList.add('on');auto.classList.remove('on');badge.textContent='SCROLL EXPLORE'};
+addEventListener('wheel',e=>{if(mode==='explore')target=Math.max(0,Math.min(1,target+e.deltaY*.00055))},{passive:true});
+addEventListener('touchmove',e=>{if(mode==='explore'&&e.touches[0])target=Math.max(0,Math.min(1,target+.001))},{passive:true});
+function resize(){const d=Math.min(devicePixelRatio||1,1.5);c.width=innerWidth*d;c.height=innerHeight*d;gl.viewport(0,0,c.width,c.height)}addEventListener('resize',resize);resize();
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(mode==='auto'){elapsed+=dt;prog=Math.min(1,elapsed/total)}else prog+=(target-prog)*.08;
+gl.uniform2f(ur,c.width,c.height);gl.uniform1f(ut,now/1000);gl.uniform1f(up,prog);gl.drawArrays(gl.TRIANGLES,0,3);
+const i=Math.min(15,Math.floor(prog*16)),s=stages[i];meta.textContent=String(i+1).padStart(2,'0')+' / 16 · '+s[0];title.textContent=s[1];copy.textContent=s[2];fill.style.width=(prog*100)+'%';seq.textContent=Math.round(prog*100)+'%';const a=Math.max(0,(prog-.55)/.35);alt.textContent=a?Math.round(a*a*92000/1000)+' km':'0 m';requestAnimationFrame(frame)}requestAnimationFrame(frame);
+</script>
+</body></html>
