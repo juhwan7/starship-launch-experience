@@ -51,7 +51,18 @@
         <button id="autoBtn" class="active">AUTO</button>
         <button id="exploreBtn">EXPLORE</button>
         <button id="soundBtn">SOUND OFF</button>
-        <button id="qualityBtn">HIGH</button>
+        <label class="speed-control" title="재생속도">
+          <span>SPEED</span>
+          <select id="speedSelect" aria-label="Playback speed">
+            <option value="1">1x</option>
+            <option value="2" selected>2x</option>
+            <option value="5">5x</option>
+            <option value="10">10x</option>
+            <option value="25">25x</option>
+            <option value="50">50x</option>
+          </select>
+        </label>
+        <button id="qualityBtn">AUTO</button>
       </div>
     </header>
 
@@ -63,7 +74,7 @@
     </aside>
 
     <div class="telemetry">
-      <div><span>MISSION</span><b id="missionClock">00:00 / 07:31</b></div>
+      <div><span>MISSION</span><b id="missionClock">00:00 / 05:07</b></div>
       <div><span>ALTITUDE</span><b id="altitude">0 m</b></div>
       <div><span>VELOCITY</span><b id="velocity">0 km/h</b></div>
       <div><span>SEQUENCE</span><b id="sequence">0%</b></div>
@@ -77,7 +88,7 @@
       <div id="timelineMarkers" class="timeline-markers"></div>
     </nav>
 
-    <div id="hint" class="hint">SCROLL / DRAG TO EXPLORE · AUTO PLAYS THE COMPLETE SEQUENCE</div>
+    <div id="hint" class="hint">AUTO DEFAULT 2x · SPEED 1 / 2 / 5 / 10 / 25 / 50x · SCROLL / DRAG TO EXPLORE</div>
   </div>
 
   <script>
