@@ -127,7 +127,21 @@ atmo.visible=false;scene.add(atmo);
 
 loadPct(24,'LOADING HIGH-DETAIL STARSHIP BLOCK 3');
 const vehicleRoot=new THREE.Group();vehicleRoot.position.y=2.7;scene.add(vehicleRoot);
-let model=null;
+let model=null,boosterPart=null,shipPart=null;
+function partitionVehicle(root){
+  boosterPart=new THREE.Group(); shipPart=new THREE.Group();
+  boosterPart.name='SuperHeavyV3'; shipPart.name='StarshipV3';
+  vehicleRoot.add(boosterPart,shipPart);
+  vehicleRoot.updateMatrixWorld(true); root.updateMatrixWorld(true);
+  const meshes=[]; root.traverse(o=>{if(o.isMesh)meshes.push(o);});
+  const center=new THREE.Vector3();
+  for(const o of meshes){
+    new THREE.Box3().setFromObject(o).getCenter(center);
+    const local=vehicleRoot.worldToLocal(center.clone());
+    (local.y>=72?shipPart:boosterPart).attach(o);
+  }
+  root.removeFromParent();
+}
 const MODEL_URL='https://cdn.jsdelivr.net/gh/haskaomni/blueprint@main/public/models/starship-block3.glb';
 const loader=new GLTFLoader();loader.setMeshoptDecoder(MeshoptDecoder);
 
@@ -136,7 +150,7 @@ function normalizeVehicle(root){
   const b2=new THREE.Box3().setFromObject(root),c=new THREE.Vector3();b2.getCenter(c);root.position.x-=c.x;root.position.z-=c.z;root.position.y-=b2.min.y;
   root.traverse(o=>{if(!o.isMesh)return;o.castShadow=o.receiveShadow=true;const arr=Array.isArray(o.material)?o.material:[o.material];for(const m of arr){if(!m)continue;if(m.map)m.map.colorSpace=THREE.SRGBColorSpace;if('metalness'in m){const n=(o.name||'').toLowerCase();if(/tile|heat|black/.test(n)){m.metalness=Math.min(m.metalness??.1,.15);m.roughness=Math.max(m.roughness??.5,.68);}else{m.metalness=Math.max(m.metalness??.2,.58);m.roughness=clamp(m.roughness??.4,.22,.58);}}}});
 }
-function loadModel(){return new Promise((res,rej)=>loader.load(MODEL_URL,g=>{model=g.scene;normalizeVehicle(model);vehicleRoot.add(model);res();},x=>{if(x.total)loadPct(24+(x.loaded/x.total)*48,'LOADING HIGH-DETAIL STARSHIP BLOCK 3',((x.loaded/1048576).toFixed(1))+' / '+((x.total/1048576).toFixed(1))+' MB · CC BY 4.0');},rej));}
+function loadModel(){return new Promise((res,rej)=>loader.load(MODEL_URL,g=>{model=g.scene;normalizeVehicle(model);vehicleRoot.add(model);partitionVehicle(model);res();},x=>{if(x.total)loadPct(24+(x.loaded/x.total)*48,'LOADING HIGH-DETAIL STARSHIP BLOCK 3',((x.loaded/1048576).toFixed(1))+' / '+((x.total/1048576).toFixed(1))+' MB · CC BY 4.0');},rej));}
 
 const engineOverlay=new THREE.Group();vehicleRoot.add(engineOverlay);
 const nozzleGeo=new THREE.CylinderGeometry(.3,.58,2.0,18,1,true),nozzleMat=mat(0x292c2d,.92,.3,{side:THREE.DoubleSide});
@@ -213,13 +227,20 @@ ui.soundBtn.onclick=async()=>{ui.soundBtn.textContent=(await audio.toggle())?'SO
 
 function updateScene(p,st,dt,now){
   vehicleRoot.position.y=2.7+st.visualY;
-  cutaway.visible=p>=S('cutaway')&&p<E('engine');if(model)model.visible=!cutaway.visible&&p<S('hotstage');
+  cutaway.visible=p>=S('cutaway')&&p<E('engine');
+  if(boosterPart&&shipPart){boosterPart.visible=!cutaway.visible;shipPart.visible=!cutaway.visible;}
   engineOverlay.visible=p>=S('engine')&&p<S('hotstage');
   const boosterPower=st.ign*(1-clamp((p-S('meco'))/(E('meco')-S('meco'))));
   boosterFlames.visible=boosterPower>.01;boosterFlames.children.forEach((f,i)=>{f.scale.y=lerp(1,i<20?23:26,boosterPower);f.material.opacity=.45+boosterPower*.5;});
   const hot=clamp((p-S('hotstage'))/Math.max(.001,(E('hotstage')-S('hotstage'))*.35));shipFlames.visible=hot>.02;shipFlames.children.forEach(f=>f.scale.y=lerp(1,12,hot));
   launchLight.intensity=boosterPower*45;launchLight.position.set(0,vehicleRoot.position.y,0);
-  const sep=st.sep;if(p>=S('hotstage')){engineOverlay.visible=true;engineOverlay.position.set(-sep*14,-sep*28,0);engineOverlay.rotation.z=-sep*.45;shipFlames.position.set(sep*22,sep*48,-sep*8);}
+  const sep=st.sep;
+  if(boosterPart&&shipPart){
+    boosterPart.position.set(-sep*14,-sep*28,0); boosterPart.rotation.z=-sep*.45;
+    shipPart.position.set(sep*22,sep*48,-sep*8); shipPart.rotation.z=sep*.08;
+  }
+  engineOverlay.position.set(-sep*14,-sep*28,0); engineOverlay.rotation.z=-sep*.45;
+  shipFlames.position.set(sep*22,sep*48,-sep*8); shipFlames.rotation.z=sep*.08;
   updateVFX(dt,p,st);
   const space=clamp((st.alt-16000)/76000);scene.fog.density=lerp(.00125,.000018,space);sky.visible=space<.96;sky.material.uniforms.rayleigh.value=lerp(2.5,.12,space);sky.material.uniforms.turbidity.value=lerp(6.5,1.2,space);ground.visible=space<.72;clouds.visible=space<.74;clouds.position.y=st.visualY*.12;
   const er=clamp((p-S('high'))/Math.max(.001,E('high')-S('high')));earth.visible=er>.03;atmo.visible=er>.08;earth.position.y=vehicleRoot.position.y-1610;atmo.position.y=earth.position.y;
