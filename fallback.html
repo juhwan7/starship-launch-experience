@@ -10,7 +10,7 @@ html,body{margin:0;background:#03070b;color:#eef3f6;font-family:system-ui,-apple
 </head>
 <body>
 <canvas id="c"></canvas>
-<div class="top"><div class="brand"><small>PROCEDURAL WEBGL2 FALLBACK</small><b>STARSHIP V3</b></div><div class="controls"><button id="auto" class="on">AUTO</button><button id="explore">EXPLORE</button></div></div>
+<div class="top"><div class="brand"><small>PROCEDURAL WEBGL2 FALLBACK</small><b>STARSHIP V3</b></div><div class="controls"><button id="auto" class="on">AUTO</button><button id="explore">EXPLORE</button><button id="speed">2x</button></div></div>
 <div class="badge" id="badge">CINEMATIC AUTO</div>
 <div class="story"><small id="meta">01 / 16 · STARBASE</small><h1 id="title">A QUIET PAD</h1><p id="copy">외부 모델 없이 실행되는 실시간 WebGL2 fallback입니다.</p></div>
 <div class="hud"><small>ALTITUDE</small><b id="alt">0 m</b><small style="margin-top:12px">SEQUENCE</small><b id="seq">0%</b></div>
@@ -87,15 +87,20 @@ const ur=gl.getUniformLocation(pr,'r'),ut=gl.getUniformLocation(pr,'t'),up=gl.ge
 
 const stages=[
 ['STARBASE','A QUIET PAD','발사장 전체 환경에서 시작합니다.'],['APPROACH','THE STACK','Starship V3 스택으로 접근합니다.'],['GROUND SYSTEMS','PAD 2','발사탑과 지상설비를 통과합니다.'],['PROPELLANT LOAD','METHANE / OXYGEN','추진제 적재와 venting이 진행됩니다.'],['CUTAWAY','INSIDE THE TANKS','내부 탱크 흐름을 교육용으로 시각화합니다.'],['ENGINE BAY','33 RAPTOR 3','Super Heavy의 33개 엔진을 보여줍니다.'],['COUNTDOWN','T−00:00:30','최종 카운트다운이 시작됩니다.'],['IGNITION','RAPTOR START','엔진 점화와 plume이 발사대를 덮습니다.'],['LIFTOFF','THE STACK MOVES','거대한 발사체가 지면을 떠납니다.'],['TOWER CLEAR','CLEAR OF PAD 2','발사탑을 완전히 통과합니다.'],['ASCENT','ATMOSPHERE','대기권을 가르며 상승합니다.'],['MAX Q','PEAK LOAD','최대 동압 구간을 통과합니다.'],['HIGH ALTITUDE','EARTH REVEAL','하늘이 어두워지고 지구가 나타납니다.'],['MECO','STAGING PREP','Super Heavy 엔진이 정지합니다.'],['HOT-STAGING','SIX RAPTORS','Starship 엔진이 점화됩니다.'],['SEPARATION','TWO PATHS','두 단계가 서로 멀어집니다.']];
-let mode='auto',prog=0,target=0,last=performance.now(),elapsed=0;const total=451;
-const auto=document.getElementById('auto'),explore=document.getElementById('explore');
+let mode='auto',prog=0,target=0,last=performance.now(),elapsed=0,rate=2;const total=307;
+const auto=document.getElementById('auto'),explore=document.getElementById('explore'),speed=document.getElementById('speed');
 auto.onclick=()=>{mode='auto';elapsed=prog*total;auto.classList.add('on');explore.classList.remove('on');badge.textContent='CINEMATIC AUTO'};
 explore.onclick=()=>{mode='explore';target=prog;explore.classList.add('on');auto.classList.remove('on');badge.textContent='SCROLL EXPLORE'};
+const speedLevels=[1,2,5,10,25,50];speed.onclick=()=>{const i=speedLevels.indexOf(rate);rate=speedLevels[(i+1)%speedLevels.length];speed.textContent=rate+'x';};
 addEventListener('wheel',e=>{if(mode==='explore')target=Math.max(0,Math.min(1,target+e.deltaY*.00055))},{passive:true});
 addEventListener('touchmove',e=>{if(mode==='explore'&&e.touches[0])target=Math.max(0,Math.min(1,target+.001))},{passive:true});
 function resize(){const d=Math.min(devicePixelRatio||1,1.5);c.width=innerWidth*d;c.height=innerHeight*d;gl.viewport(0,0,c.width,c.height)}addEventListener('resize',resize);resize();
-function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(mode==='auto'){elapsed+=dt;prog=Math.min(1,elapsed/total)}else prog+=(target-prog)*.08;
+function frame(now){
+const dt=Math.min(.05,Math.max(0,(now-last)/1000||0));last=now;
+if(mode==='auto'){elapsed+=dt*rate;prog=Math.min(1,elapsed/total)}else prog+=(target-prog)*.08;
+if(!Number.isFinite(prog))prog=0;
 gl.uniform2f(ur,c.width,c.height);gl.uniform1f(ut,now/1000);gl.uniform1f(up,prog);gl.drawArrays(gl.TRIANGLES,0,3);
-const i=Math.min(15,Math.floor(prog*16)),s=stages[i];meta.textContent=String(i+1).padStart(2,'0')+' / 16 · '+s[0];title.textContent=s[1];copy.textContent=s[2];fill.style.width=(prog*100)+'%';seq.textContent=Math.round(prog*100)+'%';const a=Math.max(0,(prog-.55)/.35);alt.textContent=a?Math.round(a*a*92000/1000)+' km':'0 m';requestAnimationFrame(frame)}requestAnimationFrame(frame);
+const i=Math.max(0,Math.min(stages.length-1,Math.floor(prog*stages.length))),s=stages[i]||stages[0];
+meta.textContent=String(i+1).padStart(2,'0')+' / '+stages.length+' · '+s[0];title.textContent=s[1];copy.textContent=s[2];fill.style.width=(prog*100)+'%';seq.textContent=Math.round(prog*100)+'%';const a=Math.max(0,(prog-.55)/.35);alt.textContent=a?Math.round(a*a*92000/1000)+' km':'0 m';requestAnimationFrame(frame)}requestAnimationFrame(frame);
 </script>
 </body></html>
