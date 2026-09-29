@@ -28,7 +28,7 @@ const ui = {
   missionClock:$('#missionClock'), altitude:$('#altitude'), velocity:$('#velocity'), sequence:$('#sequence'), countdown:$('#countdown'),
   modeBadge:$('#modeBadge'), timelineFill:$('#timelineFill'), timelineMarkers:$('#timelineMarkers'), hint:$('#hint')
 };
-function loadPct(p,label,note=''){ window.__STARSHIP_PROGRESS=p; ui.loaderBar.style.width=p+'%'; ui.loaderPct.textContent=Math.round(p)+'%'; ui.loaderLabel.textContent=label; if(note)ui.loaderNote.textContent=note; }
+function loadPct(p,label,note=''){ p=clamp(Number(p)||0,0,100); window.__STARSHIP_PROGRESS=p; ui.loaderBar.style.width=p+'%'; ui.loaderPct.textContent=Math.round(p)+'%'; ui.loaderLabel.textContent=label; if(note)ui.loaderNote.textContent=note; }
 function fatal(msg){
   window.__STARSHIP_ERROR=String(msg);
   ui.loading.hidden=true; ui.fatal.hidden=false; ui.fatalReason.textContent=msg; console.error(msg);
@@ -227,7 +227,7 @@ function normalizeVehicle(root){
   const b2=new THREE.Box3().setFromObject(root),c=new THREE.Vector3();b2.getCenter(c);root.position.x-=c.x;root.position.z-=c.z;root.position.y-=b2.min.y;
   root.traverse(o=>{if(!o.isMesh)return;o.castShadow=o.receiveShadow=true;const arr=Array.isArray(o.material)?o.material:[o.material];for(const m of arr){if(!m)continue;if(m.map)m.map.colorSpace=THREE.SRGBColorSpace;if('metalness'in m){const n=(o.name||'').toLowerCase();if(/tile|heat|black/.test(n)){m.metalness=Math.min(m.metalness??.1,.15);m.roughness=Math.max(m.roughness??.5,.68);}else{m.metalness=Math.max(m.metalness??.2,.58);m.roughness=clamp(m.roughness??.4,.22,.58);}}}});
 }
-function loadModel(){return new Promise((res,rej)=>loader.load(MODEL_URL,g=>{model=g.scene;normalizeVehicle(model);vehicleRoot.add(model);partitionVehicle(model);entryProxy.visible=false;res();},x=>{if(x.total)loadPct(24+(x.loaded/x.total)*48,'LOADING HIGH-DETAIL STARSHIP BLOCK 3',((x.loaded/1048576).toFixed(1))+' / '+((x.total/1048576).toFixed(1))+' MB · CC BY 4.0');},rej));}
+function loadModel(){return new Promise((res,rej)=>loader.load(MODEL_URL,g=>{model=g.scene;normalizeVehicle(model);vehicleRoot.add(model);partitionVehicle(model);entryProxy.visible=false;res();},x=>{if(x.total){const ratio=clamp(x.loaded/Math.max(1,x.total));loadPct(24+ratio*48,'LOADING HIGH-DETAIL STARSHIP BLOCK 3',((x.loaded/1048576).toFixed(1))+' / '+((x.total/1048576).toFixed(1))+' MB · CC BY 4.0');}},rej));}
 
 const engineOverlay=new THREE.Group();vehicleRoot.add(engineOverlay);
 const nozzleGeo=new THREE.CylinderGeometry(.3,.58,2.0,18,1,true),nozzleMat=mat(0x292c2d,.92,.3,{side:THREE.DoubleSide});
