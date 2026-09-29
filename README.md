@@ -27,6 +27,31 @@
 - 6개 Ship 엔진 hot-staging
 - Starship / Super Heavy separation
 
+## Playback / Speed
+
+기본 재생은 **2x**이며, 필요하면 **1x / 2x / 5x / 10x / 25x / 50x**로 즉시 변경할 수 있습니다.
+
+- 1x 전체 러닝타임: 약 **5분 7초**
+- 기본 2x: 약 **2분 34초**
+- 10x 이상: 오디오 자동 억제 + VFX 부하 완화
+- 25x / 50x: 입자·Bloom을 더 줄여 빠른 탐색에서 프레임 드랍을 억제
+- 마지막 speed / quality 선택은 브라우저에 기억
+
+AUTO 중에도 카메라·구름·화염·venting·연기·지구가 계속 미세하게 움직이도록 설계해 정지된 장면처럼 보이는 구간을 줄였습니다.
+
+## Visual realism revision
+
+공식 SpaceX Flight 13 / V3 / Pad 2 자료를 기준으로 다음을 다시 조정했습니다.
+
+- 어두운 영화식 룩 대신 읽기 쉬운 자연스러운 야외광
+- 더 멀리서 보는 wide / long shot 비중 확대
+- 흙·콘크리트·도로·구조용 철·배관·스테인리스의 표면 차이 강화
+- 젖은/그을린 지면, service/tire marks 추가
+- 로딩 중에도 가벼운 live scene을 먼저 보여주고 고해상도 GLB로 전환
+- 기기 성능에 맞춘 smart default quality
+
+자세한 기준은 `docs/VISUAL_REFERENCES.md`를 확인하세요.
+
 ## 렌더링 구성
 
 ### High-detail mode
