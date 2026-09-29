@@ -92,14 +92,36 @@
   </div>
 
   <script>
-    setTimeout(() => {
-      if (!window.__STARSHIP_BOOTED) {
+    (() => {
+      let lastProgress = 0;
+      let lastChange = performance.now();
+      const showFatal = (message) => {
         const loading = document.getElementById('loading');
         const fatal = document.getElementById('fatal');
         if (loading) loading.hidden = true;
-        if (fatal) { fatal.hidden = false; document.getElementById('fatalReason').textContent = '3D 렌더링 모듈을 불러오지 못했습니다. 네트워크 연결을 확인하거나 fallback 모드를 실행하세요.'; }
-      }
-    }, 12000);
+        if (fatal) {
+          fatal.hidden = false;
+          document.getElementById('fatalReason').textContent = message;
+        }
+      };
+      setInterval(() => {
+        if (window.__STARSHIP_READY) return;
+        const p = Number(window.__STARSHIP_PROGRESS || 0);
+        if (p !== lastProgress) {
+          lastProgress = p;
+          lastChange = performance.now();
+          return;
+        }
+        const stalled = performance.now() - lastChange;
+        if (!window.__STARSHIP_BOOTED && stalled > 12000) {
+          showFatal('3D 모듈을 불러오지 못했습니다. 네트워크 연결을 확인하거나 fallback 모드를 실행하세요.');
+        } else if (p >= 5 && p < 14 && stalled > 10000) {
+          showFatal('그래픽 초기화가 중단되었습니다 (' + p + '%). fallback 모드를 사용할 수 있습니다.');
+        } else if (p >= 24 && p < 100 && stalled > 50000) {
+          showFatal('고해상도 Starship 모델 로딩이 너무 오래 걸리고 있습니다. 네트워크를 확인하거나 fallback 모드를 실행하세요.');
+        }
+      }, 1500);
+    })();
   </script>
   <script type="module" src="./src/main.js"></script>
 </body>
