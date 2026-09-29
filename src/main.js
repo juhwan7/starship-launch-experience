@@ -124,7 +124,13 @@ function surfaceTexture(baseHex,variation=.12,grain=1,streaks=false){
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,5);t.anisotropy=Math.min(4,renderer.capabilities?.getMaxAnisotropy?.()||1);return t;
 }
 function roughTexture(level=.8,variation=.18){
-  const size=mobile?64:96,c=document.createElement('canvas');c.width=c.height=size,x=c.getContext('2d'),img=x.createImageData(size,size);let seed=1234567+Math.floor(level*1000);
+  const size=mobile?64:96;
+  const c=document.createElement('canvas');
+  c.width=c.height=size;
+  const x=c.getContext('2d');
+  if(!x) throw new Error('2D canvas context unavailable');
+  const img=x.createImageData(size,size);
+  let seed=1234567+Math.floor(level*1000);
   const rnd=()=>((seed=(seed*1103515245+12345)>>>0)/4294967296);
   for(let i=0;i<img.data.length;i+=4){const q=Math.round(clamp(level+(rnd()-.5)*variation)*255);img.data[i]=img.data[i+1]=img.data[i+2]=q;img.data[i+3]=255;}
   x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(7,7);return t;
