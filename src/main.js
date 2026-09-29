@@ -9,6 +9,8 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 window.__STARSHIP_BOOTED = true;
+window.__STARSHIP_READY = false;
+window.__STARSHIP_PROGRESS = 0;
 
 const $ = s => document.querySelector(s);
 const clamp = (v,a=0,b=1)=>Math.max(a,Math.min(b,v));
@@ -26,8 +28,13 @@ const ui = {
   missionClock:$('#missionClock'), altitude:$('#altitude'), velocity:$('#velocity'), sequence:$('#sequence'), countdown:$('#countdown'),
   modeBadge:$('#modeBadge'), timelineFill:$('#timelineFill'), timelineMarkers:$('#timelineMarkers'), hint:$('#hint')
 };
-function loadPct(p,label,note=''){ ui.loaderBar.style.width=p+'%'; ui.loaderPct.textContent=Math.round(p)+'%'; ui.loaderLabel.textContent=label; if(note)ui.loaderNote.textContent=note; }
-function fatal(msg){ ui.loading.hidden=true; ui.fatal.hidden=false; ui.fatalReason.textContent=msg; console.error(msg); }
+function loadPct(p,label,note=''){ window.__STARSHIP_PROGRESS=p; ui.loaderBar.style.width=p+'%'; ui.loaderPct.textContent=Math.round(p)+'%'; ui.loaderLabel.textContent=label; if(note)ui.loaderNote.textContent=note; }
+function fatal(msg){
+  window.__STARSHIP_ERROR=String(msg);
+  ui.loading.hidden=true; ui.fatal.hidden=false; ui.fatalReason.textContent=msg; console.error(msg);
+}
+addEventListener('error',e=>{ if(!window.__STARSHIP_READY) fatal('초기화 오류: '+(e?.message||'unknown runtime error')); });
+addEventListener('unhandledrejection',e=>{ if(!window.__STARSHIP_READY) fatal('초기화 오류: '+(e?.reason?.message||e?.reason||'unhandled promise rejection')); });
 
 const stages = [
  ['starbase','STARBASE','A QUIET PAD','Starbase Pad 2의 전체 환경과 발사 시스템의 규모부터 시작합니다.',23,'STARBASE · PAD 2 · V3 VISUAL RECONSTRUCTION'],
@@ -54,7 +61,19 @@ const S = id => stages.find(s=>s.id===id).start;
 const E = id => stages.find(s=>s.id===id).end;
 
 loadPct(5,'CREATING WEBGL RENDERER');
-const renderer = new THREE.WebGLRenderer({canvas:$('#scene'),antialias:!mobile,powerPreference:'high-performance',logarithmicDepthBuffer:true});
+let renderer;
+try{
+  const canvas=$('#scene');
+  const testGL=canvas.getContext('webgl2',{powerPreference:'high-performance',antialias:!mobile,alpha:false})
+    || canvas.getContext('webgl',{powerPreference:'high-performance',antialias:!mobile,alpha:false});
+  if(!testGL) throw new Error('WebGL을 사용할 수 없습니다.');
+  renderer = new THREE.WebGLRenderer({canvas,context:testGL,antialias:!mobile,powerPreference:'high-performance'});
+}catch(e){
+  fatal('WebGL 초기화 실패: '+(e?.message||e));
+  setTimeout(()=>location.replace('./fallback.html?reason=webgl-init'),900);
+  throw e;
+}
+loadPct(7,'WEBGL READY');
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.28;
@@ -68,11 +87,13 @@ camera.position.set(292,116,338);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true; controls.enabled=false; controls.maxDistance=400;
 
+loadPct(8,'INITIALIZING POST PROCESSING');
 const composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
 const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.24,.4,1.1);
 composer.addPass(bloom); composer.addPass(new OutputPass());
 
+loadPct(10,'SETTING NATURAL LIGHTING');
 const sun=new THREE.DirectionalLight(0xffe7c8,5.4); sun.position.set(-210,285,165); sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-180; sun.shadow.camera.right=180; sun.shadow.camera.top=220; sun.shadow.camera.bottom=-120; sun.shadow.camera.far=650;
 scene.add(sun,new THREE.HemisphereLight(0xd4eaff,0x806d58,2.15));
@@ -83,9 +104,10 @@ sky.material.uniforms.turbidity.value=4.4; sky.material.uniforms.rayleigh.value=
 sky.material.uniforms.mieDirectionalG.value=.82;
 sky.material.uniforms.sunPosition.value.setFromSphericalCoords(1,THREE.MathUtils.degToRad(67),THREE.MathUtils.degToRad(128));
 
+loadPct(12,'CREATING MATERIAL SYSTEM');
 const mat=(c,m=.1,r=.7,o={})=>new THREE.MeshStandardMaterial({color:c,metalness:m,roughness:r,...o});
 function surfaceTexture(baseHex,variation=.12,grain=1,streaks=false){
-  const size=256,c=document.createElement('canvas');c.width=c.height=size;
+  const size=mobile?96:160,c=document.createElement('canvas');c.width=c.height=size;
   const x=c.getContext('2d'),base=new THREE.Color(baseHex);
   const img=x.createImageData(size,size);let seed=(baseHex>>>0)^0x9e3779b9;
   const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
@@ -99,10 +121,10 @@ function surfaceTexture(baseHex,variation=.12,grain=1,streaks=false){
   }
   x.putImageData(img,0,0);
   if(streaks){x.globalAlpha=.13;x.strokeStyle='#0b0e10';for(let y=9;y<size;y+=23){x.beginPath();x.moveTo(0,y);x.lineTo(size,y+(rnd()-.5)*2);x.stroke();}}
-  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,5);t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,5);t.anisotropy=Math.min(4,renderer.capabilities?.getMaxAnisotropy?.()||1);return t;
 }
 function roughTexture(level=.8,variation=.18){
-  const size=128,c=document.createElement('canvas');c.width=c.height=size,x=c.getContext('2d'),img=x.createImageData(size,size);let seed=1234567+Math.floor(level*1000);
+  const size=mobile?64:96,c=document.createElement('canvas');c.width=c.height=size,x=c.getContext('2d'),img=x.createImageData(size,size);let seed=1234567+Math.floor(level*1000);
   const rnd=()=>((seed=(seed*1103515245+12345)>>>0)/4294967296);
   for(let i=0;i<img.data.length;i+=4){const q=Math.round(clamp(level+(rnd()-.5)*variation)*255);img.data[i]=img.data[i+1]=img.data[i+2]=q;img.data[i+3]=255;}
   x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(7,7);return t;
@@ -335,5 +357,5 @@ function animate(now){const dt=Math.min(.05,(now-last)/1000||.016);last=now;if(f
 
 async function start(){
   last=performance.now();if(forced!==null)animate(last);else requestAnimationFrame(animate);
-  try{await loadModel();loadPct(84,'CALIBRATING PBR MATERIALS','STAINLESS STEEL · TILES · RAPTOR ENGINE OVERLAY');loadPct(92,'INITIALIZING LAUNCH VFX','33 BOOSTER PLUMES · 6 SHIP PLUMES · SMOKE · VENTING');loadPct(100,'READY','HIGH-DETAIL MODE · AUTO '+playbackRate+'x');setTimeout(()=>{ui.loading.classList.add('done');setTimeout(()=>ui.loading.hidden=true,700);},220);}catch(e){fatal('고해상도 3D 모델을 불러오지 못했습니다: '+(e?.message||e));}}
+  try{await loadModel();loadPct(84,'CALIBRATING PBR MATERIALS','STAINLESS STEEL · TILES · RAPTOR ENGINE OVERLAY');loadPct(92,'INITIALIZING LAUNCH VFX','33 BOOSTER PLUMES · 6 SHIP PLUMES · SMOKE · VENTING');loadPct(100,'READY','HIGH-DETAIL MODE · AUTO '+playbackRate+'x');window.__STARSHIP_READY=true;setTimeout(()=>{ui.loading.classList.add('done');setTimeout(()=>ui.loading.hidden=true,700);},220);}catch(e){fatal('고해상도 3D 모델을 불러오지 못했습니다: '+(e?.message||e));}}
 start();
